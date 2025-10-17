@@ -1,0 +1,8 @@
+config.py
+instagram_cookies.txt
+*.db
+downloads/
+__pycache__/
+*.pyc
+.env
+.DS_Store
