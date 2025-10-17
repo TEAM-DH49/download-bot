@@ -3,51 +3,88 @@ import instaloader
 import os
 import logging
 import re
+import glob
 
 logger = logging.getLogger(__name__)
 
 async def download_instagram(url):
-    """Download Instagram PUBLIC posts only (no login)"""
+    """Instagram - Photos + Videos + Reels + Fresh Cookies"""
     try:
-        # Extract shortcode
         match = re.search(r'/(p|reel)/([A-Za-z0-9_-]+)', url)
         if not match:
             return {'success': False, 'error': 'Invalid Instagram URL'}
 
         shortcode = match.group(2)
+        
+        # Try yt-dlp first (videos/reels)
+        try:
+            opts = {
+                'outtmpl': f'downloads/ig_{shortcode}.%(ext)s',
+                'format': 'best',
+                'quiet': True,
+                'no_warnings': True,
+            }
 
-        # Use yt-dlp WITHOUT cookies
-        opts = {
-            'outtmpl': f'downloads/ig_{shortcode}.%(ext)s',
-            'format': 'best',
-            'quiet': True,
-            'no_warnings': True,
-            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'extractor_args': {'instagram': {'login': 'false'}}
-        }
+            cookies_file = 'cookies/instagram.com_cookies.txt'
+            if os.path.exists(cookies_file):
+                opts['cookiefile'] = cookies_file
+                logger.info("✅ Using fresh Instagram cookies")
 
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            fn = ydl.prepare_filename(info)
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                fn = ydl.prepare_filename(info)
 
-            if os.path.exists(fn):
-                return {
-                    'success': True,
-                    'file': fn,
-                    'title': info.get('title', 'Instagram')[:50],
-                    'type': 'video' if info.get('ext') in ['mp4', 'webm'] else 'photo'
-                }
+                if os.path.exists(fn):
+                    return {
+                        'success': True,
+                        'file': fn,
+                        'title': info.get('title', 'Instagram')[:50],
+                        'type': 'video' if fn.endswith('.mp4') else 'photo'
+                    }
+        except Exception as e:
+            logger.info(f"yt-dlp failed, trying instaloader: {e}")
+
+        # Fallback: instaloader (photos/carousels)
+        L = instaloader.Instaloader(
+            dirname_pattern='downloads',
+            filename_pattern='{shortcode}',
+            download_videos=True,
+            download_video_thumbnails=False,
+            download_geotags=False,
+            download_comments=False,
+            save_metadata=False,
+            compress_json=False,
+            quiet=True
+        )
+
+        # Load fresh cookies
+        cookies_file = 'cookies/instagram.com_cookies.txt'
+        if os.path.exists(cookies_file):
+            with open(cookies_file, 'r') as f:
+                for line in f:
+                    if 'sessionid' in line and not line.startswith('#'):
+                        sessionid = line.strip().split('\t')[-1]
+                        L.context._session.cookies.set('sessionid', sessionid, domain='.instagram.com')
+                        logger.info("✅ Loaded fresh Instagram session")
+                        break
+
+        post = instaloader.Post.from_shortcode(L.context, shortcode)
+        L.download_post(post, target='downloads')
+
+        files = glob.glob(f'downloads/{shortcode}*')
+        if files:
+            first = files[0]
+            return {
+                'success': True,
+                'file': first,
+                'title': (post.caption or 'Instagram')[:50],
+                'type': 'video' if first.endswith('.mp4') else 'photo'
+            }
+
+        return {'success': False, 'error': 'Download failed'}
 
     except Exception as e:
-        error_msg = str(e)
-        logger.error(f"Instagram: {error_msg}")
-        
-        if '401' in error_msg or 'Unauthorized' in error_msg:
-            return {
-                'success': False,
-                'error': '⚠️ Instagram blocked the request. Please:\n1. Wait 2-3 minutes\n2. Use a PUBLIC post\n3. Try a different post'
-            }
-        elif 'Private' in error_msg:
-            return {'success': False, 'error': '🔒 Private account. Use public posts only.'}
-        else:
-            return {'success': False, 'error': f'Error: {error_msg[:100]}'}
+        logger.error(f"Instagram: {e}")
+        if '401' in str(e):
+            return {'success': False, 'error': '⚠️ Rate limited. Wait 2 minutes.'}
+        return {'success': False, 'error': str(e)[:100]}
