@@ -1,10 +1,15 @@
 from telegram import Update
 from telegram.ext import ContextTypes
-from database import add_user
+from database import Database
+
+db = Database()
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    add_user(user.id, user.username)
+    try:
+        db.add_user(user.id, user.username)
+    except:
+        pass
     
     welcome_message = """╔══════════════════════════╗
    MEDIA DOWNLOADER BOT
