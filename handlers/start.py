@@ -1,28 +1,61 @@
 from telegram import Update
 from telegram.ext import ContextTypes
+from database import add_user
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    welcome_text = """
-⭐ **PREMIUM DOWNLOADER** ⭐
-
-👋 Welcome TEAM DH 49!
-
-🎯 **AVAILABLE COMMANDS:**
-
-📺 /youtube <link> - YouTube Videos
-   → 720p/480p/Max/MP3
-
-📸 /instagram <link> - Instagram Reels
-   → Videos & Reels only
-   → 📸 Photos coming soon!
-
-🐦 /twitter <link> - Twitter Videos
-🎵 /facebook <link> - Facebook Videos
-🖼️ /thumbnail <link> - YouTube Thumbnails
-
-📊 /stats - Bot Statistics
-
-⚡ Fast • Reliable • HD Quality
-    """
+    user = update.effective_user
+    add_user(user.id, user.username)
     
-    await update.message.reply_text(welcome_text)
+    welcome_message = """╔══════════════════════════╗
+   MEDIA DOWNLOADER BOT
+      Professional Edition
+╚══════════════════════════╝
+
+Hello! I'm your intelligent media extraction assistant, designed to deliver high-quality content from multiple platforms instantly.
+
+───────────────────────────
+📊 SUPPORTED PLATFORMS
+
+✓ YouTube
+  • Videos & Shorts
+  • Multiple quality options (1080p/720p/480p)
+  • Audio extraction (MP3)
+
+✓ Instagram  
+  • Posts, Reels & Stories
+  • Photos & Videos
+  • HD quality preservation
+
+✓ Twitter/X
+  • All media types supported
+
+✓ Facebook
+  • Video downloads
+
+✓ Thumbnails
+  • High-resolution extraction
+
+───────────────────────────
+⚙️ USAGE INSTRUCTIONS
+
+Send any supported platform link
+Download begins automatically
+Receive your media in seconds
+
+───────────────────────────
+🎯 FEATURES
+
+• No registration required
+• Unlimited downloads
+• Fast processing
+• HD quality
+• Secure & private
+
+Bot statistics: /stats
+
+━━━━━━━━━━━━━━━━━━━━━━━
+Powered by TEAM DH 49
+Version 2.0 | 24/7 Uptime
+━━━━━━━━━━━━━━━━━━━━━━━"""
+
+    await update.message.reply_text(welcome_message)
